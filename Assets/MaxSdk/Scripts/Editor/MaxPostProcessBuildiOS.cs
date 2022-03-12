@@ -61,12 +61,29 @@ namespace AppLovinMax.Scripts.Editor
                 dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "HyprMX/HyprMX.xcframework"));
                 dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "smaato-ios-sdk/vendor/OMSDK_Smaato.xcframework"));
                 dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "FBSDKCoreKit_Basics/XCFrameworks/FBSDKCoreKit_Basics.xcframework"));
+                dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "OguryAds/OguryAds/OMSDK_Ogury.xcframework"));
+
                 if (ShouldEmbedSnapSdk())
                 {
                     dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "SAKSDK/SAKSDK.framework"));
+                    dynamicLibraryPathsToEmbed.Add(Path.Combine("Pods/", "SAKSDK/SAKSDK.xcframework"));
                 }
 
                 return dynamicLibraryPathsToEmbed;
+            }
+        }
+
+        /// <summary>
+        /// Some library paths might contain versions and can't be hardcoded. So, we'll instead search for these libraries in the Pods/ directory.
+        /// </summary>
+        private static List<string> DynamicLibrariesToSearchToEmbed
+        {
+            get
+            {
+                return new List<string>()
+                {
+                    "OMSDK_Pubnativenet.xcframework"
+                };
             }
         }
 
@@ -134,6 +151,18 @@ namespace AppLovinMax.Scripts.Editor
         private static void EmbedDynamicLibrariesIfNeeded(string buildPath, PBXProject project, string targetGuid)
         {
             var dynamicLibraryPathsPresentInProject = DynamicLibraryPathsToEmbed.Where(dynamicLibraryPath => Directory.Exists(Path.Combine(buildPath, dynamicLibraryPath))).ToList();
+            var podsDirectory = Path.Combine(buildPath, "Pods");
+            foreach (var dynamicLibraryToSearch in DynamicLibrariesToSearchToEmbed)
+            {
+                // both .framework and .xcframework are directories, not files
+                var directories = Directory.GetDirectories(podsDirectory, dynamicLibraryToSearch, SearchOption.AllDirectories);
+                if (directories.Length <= 0) continue;
+
+                var index = directories[0].LastIndexOf("Pods");
+                var relativePath = directories[0].Substring(index);
+                dynamicLibraryPathsPresentInProject.Add(relativePath);
+            }
+
             if (dynamicLibraryPathsPresentInProject.Count <= 0) return;
 
 #if UNITY_2019_3_OR_NEWER
